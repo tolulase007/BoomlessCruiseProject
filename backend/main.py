@@ -20,8 +20,8 @@ app = FastAPI(title="Boomless Cruise API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    # Dev-friendly: allow any localhost/127.0.0.1 port (Vite can run on 5173, 5174, 4173, etc.)
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    # Local dev + production: localhost, 127.0.0.1, and Vercel deployments
+    allow_origin_regex=r"^https?://((localhost|127\.0\.0\.1)(:\d+)?|.*\.vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
