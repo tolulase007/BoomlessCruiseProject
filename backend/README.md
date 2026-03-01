@@ -21,7 +21,7 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8000
 **Linux / macOS** (from project root):
 
 ```bash
-cd BoomlessCruiseProject
+cd BoomlessCruiseProject                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 source .venv/bin/activate
 uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
