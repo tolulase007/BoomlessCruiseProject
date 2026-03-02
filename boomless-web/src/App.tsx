@@ -225,7 +225,7 @@ function App() {
       )}
 
       {activeTab === 'tryScript' && PYTHON_FIDDLE_URL && (
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col python-fiddle-embed">
           <p className="text-xs text-muted-foreground px-4 py-2 border-b border-border bg-muted/30">
             Click Run All when ready.
           </p>
