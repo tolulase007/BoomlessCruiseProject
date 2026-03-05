@@ -1,40 +1,15 @@
-import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function DarkModeToggle() {
-  const [isDark, setIsDark] = useState(false);
+type DarkModeToggleProps = {
+  isDark: boolean;
+  onToggle: () => void;
+};
 
-  useEffect(() => {
-    // Check for saved theme preference or default to light mode
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    
-    setIsDark(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    
-    if (newIsDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
-
+export function DarkModeToggle({ isDark, onToggle }: DarkModeToggleProps) {
   return (
     <button
-      onClick={toggleTheme}
+      onClick={onToggle}
       className={cn(
         "h-8 w-8 rounded-[4px] flex items-center justify-center",
         "bg-background border border-border",

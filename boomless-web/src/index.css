@@ -104,12 +104,4 @@
   .chart-tooltip {
     filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
   }
-
-  /* Python-Fiddle iframe: invert in light mode only — python-fiddle is dark by default, so we invert to match a light site (hacky, revert if unsatisfactory) */
-  .python-fiddle-embed iframe {
-    filter: invert(1) hue-rotate(180deg);
-  }
-  .dark .python-fiddle-embed iframe {
-    filter: none;
-  }
 }

@@ -10,6 +10,12 @@ const desmosEmbedUrl = DESMOS_GRAPH_URL
   ? `${DESMOS_GRAPH_URL.replace(/\?.*$/, '')}?embed`
   : '';
 
+function getInitialIsDark(): boolean {
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return savedTheme === 'dark' || (!savedTheme && prefersDark);
+}
+
 function App() {
   const [parameters, setParameters] = useState<SimulationParameters>(defaultParameters);
   const [usePythonBackend, setUsePythonBackend] = useState(false);
@@ -19,8 +25,33 @@ function App() {
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
   const prevUsePythonBackend = useRef(false);
   const [activeTab, setActiveTab] = useState<'simulation' | 'tryScript'>('simulation');
+  const [isDark, setIsDark] = useState(getInitialIsDark);
 
   const tsResult = useMemo(() => runSimulation(parameters), [parameters]);
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  // Sync app theme when Python Fiddle iframe sends a theme-change message (e.g. user toggles theme inside the embed).
+  // Expected message: { type: 'theme', theme: 'dark' | 'light' } from origin https://python-fiddle.com
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== 'https://python-fiddle.com') return;
+      const data = event.data;
+      if (data && typeof data === 'object' && data.type === 'theme' && (data.theme === 'dark' || data.theme === 'light')) {
+        setIsDark(data.theme === 'dark');
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   useEffect(() => {
     if (!usePythonBackend || !API_BASE_URL) {
@@ -134,7 +165,7 @@ function App() {
           {!apiLoading && usingPythonFallback && (
             <span className="text-xs text-amber-600 dark:text-amber-400">Python backend unavailable, using TypeScript.</span>
           )}
-          <DarkModeToggle />
+          <DarkModeToggle isDark={isDark} onToggle={() => setIsDark((prev) => !prev)} />
         </div>
       </header>
 
@@ -225,12 +256,16 @@ function App() {
       )}
 
       {activeTab === 'tryScript' && PYTHON_FIDDLE_URL && (
-        <div className="flex-1 min-h-0 flex flex-col python-fiddle-embed">
+        <div className="flex-1 min-h-0 flex flex-col">
           <p className="text-xs text-muted-foreground px-4 py-2 border-b border-border bg-muted/30">
             Click Run All when ready.
           </p>
           <iframe
-            src={PYTHON_FIDDLE_URL}
+            src={(() => {
+              const u = new URL(PYTHON_FIDDLE_URL);
+              u.searchParams.set('theme', isDark ? 'dark' : 'light');
+              return u.toString();
+            })()}
             title="Run Boomless Cruise script in Python"
             className="w-full border-0 flex-1 min-h-0"
             style={{ height: 'calc(100vh - 3.5rem)' }}
