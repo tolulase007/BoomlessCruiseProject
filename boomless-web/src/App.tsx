@@ -1,10 +1,17 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { SimulationParameters, defaultParameters, runSimulation, SimulationResult } from './physics';
-import { ControlsPanel } from './components/ControlsPanel';
-import { FlightEnvelopeChart } from './components/FlightEnvelopeChart';
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { Plane } from 'lucide-react';
 import { DESMOS_GRAPH_URL, DESMOS_OPACITY, API_BASE_URL, PYTHON_FIDDLE_URL } from './config';
+import { BackgroundEnvelope } from './components/BackgroundEnvelope';
+import { WelcomePopover } from './components/WelcomePopover';
+
+const SimulationView = lazy(() =>
+  import('./components/SimulationView').then((m) => ({ default: m.SimulationView }))
+);
+const TryScriptTab = lazy(() =>
+  import('./components/TryScriptTab').then((m) => ({ default: m.TryScriptTab }))
+);
 
 const desmosEmbedUrl = DESMOS_GRAPH_URL
   ? `${DESMOS_GRAPH_URL.replace(/\?.*$/, '')}?embed`
@@ -26,8 +33,41 @@ function App() {
   const prevUsePythonBackend = useRef(false);
   const [activeTab, setActiveTab] = useState<'simulation' | 'tryScript'>('simulation');
   const [isDark, setIsDark] = useState(getInitialIsDark);
+  const [desmosReady, setDesmosReady] = useState(false);
+  const [desmosLoaded, setDesmosLoaded] = useState(false);
 
   const tsResult = useMemo(() => runSimulation(parameters), [parameters]);
+
+  // Defer Desmos iframe briefly so the site paints and stays responsive; then it fades in when loaded.
+  useEffect(() => {
+    if (!desmosEmbedUrl) return;
+    try {
+      const origin = new URL(desmosEmbedUrl).origin;
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = origin;
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+    } catch {
+      /* ignore */
+    }
+    let cancelled = false;
+    const addIframe = () => {
+      if (!cancelled) setDesmosReady(true);
+    };
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(addIframe, { timeout: 2000 });
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
+    }
+    const id = setTimeout(addIframe, 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, []);
 
   useEffect(() => {
     if (isDark) {
@@ -93,18 +133,35 @@ function App() {
 
   const result: SimulationResult =
     usePythonBackend && API_BASE_URL && apiResult != null ? apiResult : tsResult;
-  const ap = result.aircraftPoint;
   const usingPythonFallback = usePythonBackend && API_BASE_URL && apiError;
 
   return (
     <>
+      {/* Lightweight SVG background: shows immediately, no iframe blocking; dims when Desmos fades in */}
       {desmosEmbedUrl && (
-        <div className="fixed inset-0 z-0 overflow-hidden" aria-hidden>
+        <BackgroundEnvelope
+          result={result}
+          opacity={desmosLoaded ? 0.05 : 0.14}
+        />
+      )}
+      {/* Desmos iframe: sandboxed (forces a separate OS process in Chromium so it can't block the page) */}
+      {desmosEmbedUrl && desmosReady && (
+        <div
+          className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
+          aria-hidden
+          style={{
+            contain: 'strict',
+            opacity: desmosLoaded ? DESMOS_OPACITY : 0,
+            transition: 'opacity 1.8s ease-in',
+          }}
+        >
           <iframe
             src={desmosEmbedUrl}
-            className="w-full h-full pointer-events-none"
-            style={{ opacity: DESMOS_OPACITY }}
+            className="w-full h-full"
             title=""
+            loading="lazy"
+            sandbox="allow-scripts"
+            onLoad={() => setDesmosLoaded(true)}
           />
         </div>
       )}
@@ -169,139 +226,41 @@ function App() {
         </div>
       </header>
 
-      {/* ── Body ────────────────────────────────────────────────── */}
+      {/* ── Body (lazy so shell paints first) ──────────────────────────── */}
       {activeTab === 'simulation' && (
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar */}
-          <aside className={`w-[300px] border-r border-border overflow-y-auto p-8 flex flex-col ${desmosEmbedUrl ? 'bg-muted/50' : 'bg-muted/30'}`}>
-            <ControlsPanel parameters={parameters} onParametersChange={setParameters} />
-          </aside>
-
-          {/* Main content */}
-          <main className={`flex-1 p-8 overflow-y-auto ${desmosEmbedUrl ? 'bg-background/85' : 'bg-background'}`}>
-            <div className="max-w-5xl mx-auto flex flex-col gap-8">
-              {/* Title row */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight mb-1">Mach Cutoff Envelope</h2>
-                  <p className="text-muted-foreground text-xs font-medium">
-                    {parameters.tempMode === 'twoTemps' ? 'Two-temperature' : 'Lapse-rate'} atmospheric model
-                    &middot; {parameters.gridResolution}&times;{parameters.gridResolution} grid
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Flight Condition
-                  </span>
-                  <div
-                    className={`px-3 py-1 rounded-[4px] text-[10px] font-bold tracking-widest flex items-center gap-2 ${
-                      ap.isBoomless
-                        ? 'bg-emerald-600 text-white'
-                        : ap.localMach < 1
-                        ? 'bg-gray-600 text-white'
-                        : 'bg-red-600 text-white'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    {ap.isBoomless ? 'BOOMLESS' : ap.localMach < 1 ? 'SUBSONIC' : 'AUDIBLE BOOM'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Chart */}
-              <FlightEnvelopeChart result={result} />
-
-              {/* Metrics */}
-              <div className="grid grid-cols-4 gap-5">
-                <MetricCard
-                  label="Ground Speed of Sound"
-                  value={`${result.groundSoundSpeed.toFixed(1)}`}
-                  unit="m/s"
-                />
-                <MetricCard
-                  label="Local Speed of Sound"
-                  value={`${ap.localSoundSpeed.toFixed(1)}`}
-                  unit="m/s"
-                />
-                <MetricCard
-                  label="Ground Mach"
-                  value={ap.groundMach.toFixed(3)}
-                  accent={ap.groundMach < 1}
-                />
-                <MetricCard
-                  label="Local Mach"
-                  value={ap.localMach.toFixed(3)}
-                  accent={ap.localMach > 1}
-                />
-              </div>
-
-              {/* Info row */}
-              <div className="grid grid-cols-2 gap-5">
-                <div className="bg-muted/50 border border-border p-4 rounded-[4px] text-sm leading-relaxed">
-                  <span className="font-bold">Boomless condition:</span>{' '}
-                  Aircraft flies supersonically at altitude (M<sub>local</sub>&gt;1) while the ground
-                  Mach number stays below 1 (M<sub>ground</sub>&lt;1). The shock refracts upward
-                  before reaching the surface.
-                </div>
-                <div className="bg-muted/50 border border-border p-4 rounded-[4px] text-sm leading-relaxed">
-                  <span className="font-bold">Resolved temps:</span>{' '}
-                  Ground {result.resolvedGroundTemp.toFixed(1)}°C,{' '}
-                  Altitude {result.resolvedRefAltitudeTemp.toFixed(1)}°C,{' '}
-                  Lapse rate {result.resolvedLapseRate.toFixed(2)}°C/km
-                </div>
+        <Suspense
+          fallback={
+            <div className="flex-1 flex items-center justify-center min-h-[320px]">
+              <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium">Loading simulation…</span>
               </div>
             </div>
-          </main>
-        </div>
+          }
+        >
+          <SimulationView
+            parameters={parameters}
+            onParametersChange={setParameters}
+            result={result}
+            desmosEmbedUrl={desmosEmbedUrl}
+          />
+        </Suspense>
       )}
 
       {activeTab === 'tryScript' && PYTHON_FIDDLE_URL && (
-        <div className="flex-1 min-h-0 flex flex-col">
-          <p className="text-xs text-muted-foreground px-4 py-2 border-b border-border bg-muted/30">
-            Click Run All when ready.
-          </p>
-          <iframe
-            src={(() => {
-              const u = new URL(PYTHON_FIDDLE_URL);
-              u.searchParams.set('theme', isDark ? 'dark' : 'light');
-              return u.toString();
-            })()}
-            title="Run Boomless Cruise script in Python"
-            className="w-full border-0 flex-1 min-h-0"
-            style={{ height: 'calc(100vh - 3.5rem)' }}
-          />
-        </div>
+        <Suspense
+          fallback={
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Loading…
+            </div>
+          }
+        >
+          <TryScriptTab pythonFiddleUrl={PYTHON_FIDDLE_URL} isDark={isDark} />
+        </Suspense>
       )}
     </div>
+    <WelcomePopover />
     </>
-  );
-}
-
-// ── Small metric card ──────────────────────────────────────────────────
-
-function MetricCard({
-  label,
-  value,
-  unit,
-  accent,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="bg-card border border-border p-4 rounded-[4px] card-lift">
-      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-        {label}
-      </p>
-      <p className="text-lg font-bold">
-        <span className={accent ? 'text-accent' : ''}>{value}</span>
-        {unit && (
-          <span className="text-xs text-muted-foreground font-normal ml-1">{unit}</span>
-        )}
-      </p>
-    </div>
   );
 }
 
