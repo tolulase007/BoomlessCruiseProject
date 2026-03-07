@@ -21,11 +21,11 @@ function MetricCard({
   accent?: boolean;
 }) {
   return (
-    <div className="bg-card border border-border p-4 rounded-[4px] card-lift">
-      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+    <div className="bg-card border border-border p-3 rounded-[4px] card-lift">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
         {label}
       </p>
-      <p className="text-lg font-bold">
+      <p className="text-base font-bold">
         <span className={accent ? 'text-accent' : ''}>{value}</span>
         {unit && (
           <span className="text-xs text-muted-foreground font-normal ml-1">{unit}</span>
@@ -46,22 +46,19 @@ export function SimulationView({
   return (
     <div className="flex flex-1 overflow-hidden">
       <aside
-        className={`w-[300px] border-r border-border overflow-y-auto p-8 flex flex-col ${
-          desmosEmbedUrl ? 'bg-muted/50' : 'bg-muted/30'
-        }`}
+        className="w-[300px] shrink-0 border-r border-border overflow-y-auto scrollbar-hide min-h-0 p-8 bg-muted/50"
       >
         <ControlsPanel parameters={parameters} onParametersChange={onParametersChange} />
       </aside>
 
       <main
-        className={`flex-1 p-8 overflow-y-auto ${
-          desmosEmbedUrl ? 'bg-background/85' : 'bg-background'
-        }`}
+        className="flex-1 p-4 overflow-hidden flex flex-col bg-background/85"
       >
-        <div className="max-w-5xl mx-auto flex flex-col gap-8">
-          <div className="flex justify-between items-start">
+        <div className="flex-1 flex flex-col gap-3 min-h-0 max-w-5xl mx-auto w-full">
+          {/* Title row */}
+          <div className="flex justify-between items-start shrink-0">
             <div>
-              <h2 className="text-xl font-bold tracking-tight mb-1">Mach Cutoff Envelope</h2>
+              <h2 className="text-xl font-bold tracking-tight mb-0.5">Mach Cutoff Envelope</h2>
               <p className="text-muted-foreground text-xs font-medium">
                 {parameters.tempMode === 'twoTemps' ? 'Two-temperature' : 'Lapse-rate'}{' '}
                 atmospheric model &middot; {parameters.gridResolution}&times;
@@ -87,9 +84,13 @@ export function SimulationView({
             </div>
           </div>
 
-          <FlightEnvelopeChart result={result} />
+          {/* Chart — grows to fill remaining space */}
+          <div className="flex-1 min-h-0">
+            <FlightEnvelopeChart result={result} />
+          </div>
 
-          <div className="grid grid-cols-4 gap-5">
+          {/* Metrics row */}
+          <div className="grid grid-cols-4 gap-3 shrink-0">
             <MetricCard
               label="Ground Speed of Sound"
               value={`${result.groundSoundSpeed.toFixed(1)}`}
@@ -112,13 +113,14 @@ export function SimulationView({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-5">
-            <div className="bg-muted/50 border border-border p-4 rounded-[4px] text-sm leading-relaxed">
+          {/* Info row */}
+          <div className="grid grid-cols-2 gap-3 shrink-0">
+            <div className="bg-muted/50 border border-border p-3 rounded-[4px] text-xs leading-relaxed">
               <span className="font-bold">Boomless condition:</span> Aircraft flies supersonically
               at altitude (M<sub>local</sub>&gt;1) while the ground Mach number stays below 1
               (M<sub>ground</sub>&lt;1). The shock refracts upward before reaching the surface.
             </div>
-            <div className="bg-muted/50 border border-border p-4 rounded-[4px] text-sm leading-relaxed">
+            <div className="bg-muted/50 border border-border p-3 rounded-[4px] text-xs leading-relaxed">
               <span className="font-bold">Resolved temps:</span> Ground{' '}
               {result.resolvedGroundTemp.toFixed(1)}°C, Altitude{' '}
               {result.resolvedRefAltitudeTemp.toFixed(1)}°C, Lapse rate{' '}

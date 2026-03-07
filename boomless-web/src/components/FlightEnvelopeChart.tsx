@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, memo } from 'react';
 import { SimulationResult } from '../physics';
 import { Card } from './ui/Card';
 
@@ -40,7 +40,7 @@ function generateTicks(min: number, max: number, targetTicks: number): number[] 
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
+export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({ result }: FlightEnvelopeChartProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; show: boolean }>({
     x: 0,
     y: 0,
@@ -55,10 +55,10 @@ export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
   const hMinKm = hMin / 1000;
   const hMaxKm = hMax / 1000;
 
-  // Scale functions
-  const xScale = useCallback((v: number) => ((v - vMin) / (vMax - vMin)) * PLOT_W, [vMin, vMax]);
+  // Scale functions — round to 1 decimal to reduce SVG string size
+  const xScale = useCallback((v: number) => Math.round(((v - vMin) / (vMax - vMin)) * PLOT_W * 10) / 10, [vMin, vMax]);
   const yScale = useCallback(
-    (hKm: number) => PLOT_H - ((hKm - hMinKm) / (hMaxKm - hMinKm)) * PLOT_H,
+    (hKm: number) => Math.round((PLOT_H - ((hKm - hMinKm) / (hMaxKm - hMinKm)) * PLOT_H) * 10) / 10,
     [hMinKm, hMaxKm],
   );
 
@@ -75,7 +75,7 @@ export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
   }, [result, xScale, yScale]);
 
   // c_ground vertical line x position
-  const cGroundX = useMemo(() => xScale(result.groundSoundSpeed), [result.groundSoundSpeed, xScale]);
+  const cGroundX = useMemo(() => Math.round(xScale(result.groundSoundSpeed) * 10) / 10, [result.groundSoundSpeed, xScale]);
 
   // ── Regions as SVG polygon point strings ──
 
@@ -131,7 +131,7 @@ export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
   const ap = result.aircraftPoint;
 
   return (
-    <Card className="overflow-hidden flex flex-col">
+    <Card className="overflow-hidden flex flex-col h-full">
       {/* Legend header — card-style for trading UI feel */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-6 bg-card">
         <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
       </div>
 
       {/* SVG chart */}
-      <div className="flex-1 min-h-[420px] p-2">
+      <div className="flex-1 min-h-0 p-2">
         <svg
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           className="w-full h-full"
@@ -391,4 +391,4 @@ export const FlightEnvelopeChart = ({ result }: FlightEnvelopeChartProps) => {
       </div>
     </Card>
   );
-};
+});

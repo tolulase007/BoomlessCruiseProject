@@ -105,6 +105,7 @@ function App() {
       setShowLoadingMessage(true);
       prevUsePythonBackend.current = true;
     }
+    const controller = new AbortController();
     const url = `${API_BASE_URL.replace(/\/$/, '')}/simulate`;
     setApiLoading(true);
     setApiError(false);
@@ -112,6 +113,7 @@ function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parameters),
+      signal: controller.signal,
     })
       .then((res) => {
         if (!res.ok) throw new Error(String(res.status));
@@ -121,7 +123,8 @@ function App() {
         setApiResult(data);
         setApiError(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
         setApiResult(null);
         setApiError(true);
       })
@@ -129,6 +132,7 @@ function App() {
         setApiLoading(false);
         setShowLoadingMessage(false);
       });
+    return () => controller.abort();
   }, [usePythonBackend, API_BASE_URL, parameters]);
 
   const result: SimulationResult =
@@ -137,13 +141,11 @@ function App() {
 
   return (
     <>
-      {/* Lightweight SVG background: shows immediately, no iframe blocking; dims when Desmos fades in */}
-      {desmosEmbedUrl && (
-        <BackgroundEnvelope
-          result={result}
-          opacity={desmosLoaded ? 0.05 : 0.14}
-        />
-      )}
+      {/* Lightweight SVG background: always visible; dims further when Desmos iframe fades in */}
+      <BackgroundEnvelope
+        result={result}
+        opacity={desmosLoaded ? 0.05 : 0.14}
+      />
       {/* Desmos iframe: sandboxed (forces a separate OS process in Chromium so it can't block the page) */}
       {desmosEmbedUrl && desmosReady && (
         <div
@@ -166,10 +168,10 @@ function App() {
         </div>
       )}
       <div
-        className={`relative z-10 min-h-screen flex flex-col ${desmosEmbedUrl ? 'bg-transparent' : 'bg-background'}`}
+        className="relative z-10 h-screen overflow-hidden flex flex-col bg-transparent"
       >
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className={`h-14 border-b border-border px-8 flex items-center justify-between ${desmosEmbedUrl ? 'bg-card/90' : 'bg-card'}`}>
+      <header className={`h-14 border-b border-border px-8 flex items-center justify-between ${desmosEmbedUrl ? 'bg-card/90' : 'bg-card/95'}`}>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 bg-primary flex items-center justify-center rounded-[4px]">

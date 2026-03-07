@@ -20,6 +20,13 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide';
           }
+          if (
+            id.includes('node_modules/tailwind-merge') ||
+            id.includes('node_modules/clsx') ||
+            id.includes('node_modules/class-variance-authority')
+          ) {
+            return 'utils';
+          }
         },
       },
     },

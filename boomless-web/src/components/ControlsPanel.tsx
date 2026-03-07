@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Card } from './ui/Card';
 import { Label } from './ui/Label';
 import { Slider } from './ui/Slider';
@@ -10,9 +11,9 @@ interface ControlsPanelProps {
 }
 
 export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelProps) => {
-  const updateParameter = <K extends keyof SimulationParameters>(key: K, value: SimulationParameters[K]) => {
+  const updateParameter = useCallback(<K extends keyof SimulationParameters>(key: K, value: SimulationParameters[K]) => {
     onParametersChange({ ...parameters, [key]: value });
-  };
+  }, [parameters, onParametersChange]);
 
   const resolved = resolveTemps(parameters);
   const isTwoTemps = parameters.tempMode === 'twoTemps';
