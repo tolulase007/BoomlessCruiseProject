@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { SimulationParameters, SimulationResult } from '../physics';
 import { ControlsPanel } from './ControlsPanel';
 import { FlightEnvelopeChart } from './FlightEnvelopeChart';
@@ -40,13 +42,46 @@ export function SimulationView({
   result,
 }: SimulationViewProps) {
   const ap = result.aircraftPoint;
+  const controlsAsideRef = useRef<HTMLElement | null>(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+
+  useEffect(() => {
+    const aside = controlsAsideRef.current;
+    if (!aside) return;
+
+    const updateHintVisibility = () => {
+      const hasOverflow = aside.scrollHeight > aside.clientHeight + 1;
+      const hasScrolled = aside.scrollTop > 8;
+      setShowScrollHint(hasOverflow && !hasScrolled);
+    };
+
+    updateHintVisibility();
+    window.addEventListener('resize', updateHintVisibility);
+    return () => window.removeEventListener('resize', updateHintVisibility);
+  }, [parameters.tempMode]);
 
   return (
     <div className="flex flex-1 overflow-hidden">
       <aside
-        className="w-[300px] shrink-0 border-r border-border overflow-y-auto scrollbar-hide min-h-0 p-8 bg-muted/50"
+        ref={controlsAsideRef}
+        onScroll={() => {
+          if (showScrollHint && controlsAsideRef.current && controlsAsideRef.current.scrollTop > 8) {
+            setShowScrollHint(false);
+          }
+        }}
+        className="relative w-[300px] shrink-0 border-r border-border overflow-y-auto scrollbar-hide min-h-0 p-8 bg-muted/50"
       >
         <ControlsPanel parameters={parameters} onParametersChange={onParametersChange} />
+        {showScrollHint && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-muted/90 via-muted/60 to-transparent">
+            <div className="absolute inset-x-0 bottom-2 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                Scroll
+                <ChevronDown className="h-3 w-3 animate-bounce" />
+              </span>
+            </div>
+          </div>
+        )}
       </aside>
 
       <main

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { SimulationParameters, defaultParameters, runSimulation, SimulationResult } from './physics';
 import { DarkModeToggle } from './components/DarkModeToggle';
-import { Plane } from 'lucide-react';
+import { CircleHelp, Plane } from 'lucide-react';
 import { DESMOS_GRAPH_URL, DESMOS_OPACITY, API_BASE_URL, PYTHON_FIDDLE_URL } from './config';
 import { WelcomePopover } from './components/WelcomePopover';
 
@@ -41,6 +41,8 @@ function App() {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiError, setApiError] = useState(false);
   const [showLoadingMessage, setShowLoadingMessage] = useState(false);
+  const [welcomeHintClicks, setWelcomeHintClicks] = useState(0);
+  const [showHintNudge, setShowHintNudge] = useState(false);
   const prevUsePythonBackend = useRef(false);
   const [activeTab, setActiveTab] = useState<'simulation' | 'tryScript'>('simulation');
   const [isDark, setIsDark] = useState(getInitialIsDark);
@@ -51,6 +53,40 @@ function App() {
   const desmosLayerRef = useRef<HTMLDivElement | null>(null);
   const desmosIframeMountedRef = useRef(false);
   const desmosTimingEnabled = useMemo(() => isDesmosTimingEnabled(), []);
+
+  useEffect(() => {
+    if (!API_BASE_URL) return;
+    const IDLE_BEFORE_HINT_MS = 25000;
+    let timeoutId: number | undefined;
+
+    const scheduleHintNudge = () => {
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+      }
+      setShowHintNudge(false);
+      timeoutId = window.setTimeout(() => {
+        setShowHintNudge(true);
+      }, IDLE_BEFORE_HINT_MS);
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'pointerdown',
+      'pointermove',
+      'keydown',
+      'scroll',
+      'touchstart',
+    ];
+
+    scheduleHintNudge();
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, scheduleHintNudge, { passive: true }));
+
+    return () => {
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+      }
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, scheduleHintNudge));
+    };
+  }, [API_BASE_URL]);
 
   const tsResult = useMemo(() => runSimulation(parameters), [parameters]);
   const logDesmosTiming = (event: string, data: Record<string, unknown> = {}) => {
@@ -318,15 +354,31 @@ function App() {
         </div>
         <div className="flex items-center gap-4">
           {API_BASE_URL && (
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={usePythonBackend}
-                onChange={(e) => setUsePythonBackend(e.target.checked)}
-                className="rounded border-border"
-              />
-              Use Python
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={usePythonBackend}
+                  onChange={(e) => setUsePythonBackend(e.target.checked)}
+                  className="rounded border-border"
+                />
+                Use Python
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setWelcomeHintClicks((prev) => prev + 1);
+                  setShowHintNudge(false);
+                }}
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors ${
+                  showHintNudge ? 'animate-pulse text-accent shadow-[0_0_12px_hsl(var(--accent)/0.45)]' : ''
+                }`}
+                aria-label="Show app hint"
+                title="Show app hint"
+              >
+                <CircleHelp className="h-4 w-4" />
+              </button>
+            </div>
           )}
           {apiLoading && showLoadingMessage && (
             <span className="text-xs text-muted-foreground">Loading from Python backend…</span>
@@ -370,7 +422,7 @@ function App() {
         </Suspense>
       )}
     </div>
-    <WelcomePopover />
+    <WelcomePopover reopenSignal={welcomeHintClicks} />
     </>
   );
 }

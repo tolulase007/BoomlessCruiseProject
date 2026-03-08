@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plane, X } from 'lucide-react';
 
 const STORAGE_KEY = 'boomless-welcome-dismissed';
 
-export function WelcomePopover() {
+interface WelcomePopoverProps {
+  reopenSignal?: number;
+}
+
+export function WelcomePopover({ reopenSignal = 0 }: WelcomePopoverProps) {
   // Lazy initializer runs once — no extra render cycle or flash
   const [visible, setVisible] = useState(() => !localStorage.getItem(STORAGE_KEY));
+
+  useEffect(() => {
+    if (reopenSignal > 0) {
+      setVisible(true);
+    }
+  }, [reopenSignal]);
 
   const dismiss = () => {
     setVisible(false);
