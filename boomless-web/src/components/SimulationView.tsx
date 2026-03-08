@@ -6,7 +6,6 @@ export interface SimulationViewProps {
   parameters: SimulationParameters;
   onParametersChange: (p: SimulationParameters) => void;
   result: SimulationResult;
-  desmosEmbedUrl: string;
 }
 
 function MetricCard({
@@ -39,7 +38,6 @@ export function SimulationView({
   parameters,
   onParametersChange,
   result,
-  desmosEmbedUrl,
 }: SimulationViewProps) {
   const ap = result.aircraftPoint;
 

@@ -16,6 +16,16 @@ const TryScriptTab = lazy(() =>
 const desmosEmbedUrl = DESMOS_GRAPH_URL
   ? `${DESMOS_GRAPH_URL.replace(/\?.*$/, '')}?embed`
   : '';
+const DESMOS_TIMING_TAG = '[desmos-timing]';
+const DESMOS_BOOT_DELAY_MS = 250;
+
+function isDesmosTimingEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const queryValue = params.get('desmosTiming');
+  const envValue = String((import.meta.env as Record<string, unknown>).VITE_DEBUG_DESMOS_TIMING ?? '').toLowerCase();
+  return queryValue === '1' || queryValue === 'true' || envValue === '1' || envValue === 'true';
+}
 
 function getInitialIsDark(): boolean {
   const savedTheme = localStorage.getItem('theme');
@@ -35,14 +45,38 @@ function App() {
   const [isDark, setIsDark] = useState(getInitialIsDark);
   const [desmosReady, setDesmosReady] = useState(false);
   const [desmosLoaded, setDesmosLoaded] = useState(false);
+  const [desmosVisible, setDesmosVisible] = useState(false);
+  const appStartMsRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : 0);
+  const desmosLayerRef = useRef<HTMLDivElement | null>(null);
+  const desmosIframeMountedRef = useRef(false);
+  const desmosTimingEnabled = useMemo(() => isDesmosTimingEnabled(), []);
 
   const tsResult = useMemo(() => runSimulation(parameters), [parameters]);
+  const logDesmosTiming = (event: string, data: Record<string, unknown> = {}) => {
+    if (!desmosTimingEnabled) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsedMs = (now - appStartMsRef.current).toFixed(1);
+    console.info(`${DESMOS_TIMING_TAG} +${elapsedMs}ms ${event}`, data);
+  };
 
-  // Defer Desmos iframe briefly so the site paints and stays responsive; then it fades in when loaded.
+  useEffect(() => {
+    logDesmosTiming('mount-effect', {
+      hasDesmosEmbed: Boolean(desmosEmbedUrl),
+      visibilityState: document.visibilityState,
+      readyState: document.readyState,
+      userAgent: navigator.userAgent,
+    });
+  }, []);
+
+  // Deterministic startup: paint app first, then start Desmos shortly after.
   useEffect(() => {
     if (!desmosEmbedUrl) return;
     try {
       const origin = new URL(desmosEmbedUrl).origin;
+      const dnsPrefetch = document.createElement('link');
+      dnsPrefetch.rel = 'dns-prefetch';
+      dnsPrefetch.href = origin;
+      document.head.appendChild(dnsPrefetch);
       const link = document.createElement('link');
       link.rel = 'preconnect';
       link.href = origin;
@@ -53,21 +87,56 @@ function App() {
     }
     let cancelled = false;
     const addIframe = () => {
-      if (!cancelled) setDesmosReady(true);
+      if (!cancelled) {
+        setDesmosReady(true);
+        logDesmosTiming('desmos-ready:set');
+      }
     };
-    if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(addIframe, { timeout: 2000 });
-      return () => {
-        cancelled = true;
-        cancelIdleCallback(id);
-      };
-    }
-    const id = setTimeout(addIframe, 2000);
+    let timeoutId: number | undefined;
+    logDesmosTiming('desmos-ready:scheduled', { strategy: 'post-paint-timeout', timeoutMs: DESMOS_BOOT_DELAY_MS });
+    const rafId = requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(addIframe, DESMOS_BOOT_DELAY_MS);
+    });
     return () => {
       cancelled = true;
-      clearTimeout(id);
+      cancelAnimationFrame(rafId);
+      if (timeoutId != null) clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!desmosReady) return;
+    logDesmosTiming('desmos-ready:committed');
+  }, [desmosReady]);
+
+  useEffect(() => {
+    if (!desmosLoaded) return;
+    const elapsed = (typeof performance !== 'undefined' ? performance.now() : 0) - appStartMsRef.current;
+    const minGraphFirstMs = 1200;
+    const delayMs = Math.max(0, minGraphFirstMs - elapsed);
+    logDesmosTiming('desmos-visible:scheduled', {
+      elapsedSinceStartMs: Number(elapsed.toFixed(1)),
+      minGraphFirstMs,
+      delayMs,
+      visibilityState: document.visibilityState,
+      layerOpacity: desmosLayerRef.current ? getComputedStyle(desmosLayerRef.current).opacity : 'missing-layer',
+    });
+    const timeoutId = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        logDesmosTiming('desmos-visible:raf-1', {
+          layerOpacity: desmosLayerRef.current ? getComputedStyle(desmosLayerRef.current).opacity : 'missing-layer',
+        });
+        requestAnimationFrame(() => {
+          logDesmosTiming('desmos-visible:raf-2', {
+            layerOpacity: desmosLayerRef.current ? getComputedStyle(desmosLayerRef.current).opacity : 'missing-layer',
+          });
+          setDesmosVisible(true);
+          logDesmosTiming('desmos-visible:set');
+        });
+      });
+    }, delayMs);
+    return () => clearTimeout(timeoutId);
+  }, [desmosLoaded]);
 
   useEffect(() => {
     if (isDark) {
@@ -144,26 +213,45 @@ function App() {
       {/* Lightweight SVG background: always visible; dims further when Desmos iframe fades in */}
       <BackgroundEnvelope
         result={result}
-        opacity={desmosLoaded ? 0.05 : 0.14}
+        opacity={desmosVisible ? 0.05 : 0.14}
       />
       {/* Desmos iframe: sandboxed (forces a separate OS process in Chromium so it can't block the page) */}
       {desmosEmbedUrl && desmosReady && (
         <div
+          ref={desmosLayerRef}
           className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
           aria-hidden
           style={{
             contain: 'strict',
-            opacity: desmosLoaded ? DESMOS_OPACITY : 0,
+            opacity: desmosVisible ? DESMOS_OPACITY : 0,
+            willChange: 'opacity',
             transition: 'opacity 1.8s ease-in',
           }}
+          onTransitionStart={() => logDesmosTiming('desmos-layer:transition-start')}
+          onTransitionEnd={() => logDesmosTiming('desmos-layer:transition-end')}
         >
           <iframe
+            ref={(node) => {
+              if (node && !desmosIframeMountedRef.current) {
+                desmosIframeMountedRef.current = true;
+                logDesmosTiming('iframe-mounted', { src: node.src });
+              }
+            }}
             src={desmosEmbedUrl}
             className="w-full h-full"
             title=""
-            loading="lazy"
-            sandbox="allow-scripts"
-            onLoad={() => setDesmosLoaded(true)}
+            loading="eager"
+            sandbox="allow-scripts allow-same-origin"
+            onLoad={() => {
+              logDesmosTiming('iframe-onload', {
+                readyState: document.readyState,
+                visibilityState: document.visibilityState,
+                layerOpacityBeforeSet: desmosLayerRef.current
+                  ? getComputedStyle(desmosLayerRef.current).opacity
+                  : 'missing-layer',
+              });
+              setDesmosLoaded(true);
+            }}
           />
         </div>
       )}
@@ -244,7 +332,6 @@ function App() {
             parameters={parameters}
             onParametersChange={setParameters}
             result={result}
-            desmosEmbedUrl={desmosEmbedUrl}
           />
         </Suspense>
       )}
