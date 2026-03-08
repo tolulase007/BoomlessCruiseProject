@@ -25,8 +25,8 @@ export interface SimulationParameters {
   // Atmospheric parameters
   lapseRate: number;           // °C per km
   groundTemp: number;          // °C
-  refAltitudeTemp: number;     // °C
-  refAltitude: number;         // meters (reference / aircraft altitude)
+  refAltitudeTemp: number;     // °C at aircraft altitude
+  groundElevation: number;     // meters above sea level
 
   // Temperature input mode
   tempMode: TempMode;
@@ -86,7 +86,7 @@ export interface ResolvedTemps {
  * which is derived.
  */
 export function resolveTemps(params: SimulationParameters): ResolvedTemps {
-  const hRefKm = params.refAltitude / 1000;
+  const hRefKm = Math.max(0, params.aircraftAltitude - params.groundElevation) / 1000;
 
   if (params.tempMode === 'twoTemps') {
     // Both temperatures are inputs → derive lapse rate
@@ -122,11 +122,15 @@ export function resolveTemps(params: SimulationParameters): ResolvedTemps {
 // ── Core physics ───────────────────────────────────────────────────────
 
 /**
- * Temperature at altitude h (meters).
- * T(h) = T_ground_K − lapseRate_per_m × h
+ * Temperature at altitude above local ground h_agl (meters).
+ * T(h_agl) = T_ground_K − lapseRate_per_m × h_agl
  */
-function temperature(h: number, T_ground_K: number, lapseRate_per_m: number): number {
-  return T_ground_K - lapseRate_per_m * h;
+function temperature(h_agl: number, T_ground_K: number, lapseRate_per_m: number): number {
+  return T_ground_K - lapseRate_per_m * h_agl;
+}
+
+function altitudeAboveGround(h_asl: number, groundElevation: number): number {
+  return Math.max(0, h_asl - groundElevation);
 }
 
 /** Speed of sound: c = √(γ R T) */
@@ -166,12 +170,14 @@ export function runSimulation(params: SimulationParameters): SimulationResult {
   // c(h) boundary curve
   const localSoundSpeed: number[] = new Array(resolution);
   for (let i = 0; i < resolution; i++) {
-    const T = temperature(altitudeArray[i], T_ground_K, lapseRate_per_m);
+    const h_agl = altitudeAboveGround(altitudeArray[i], params.groundElevation);
+    const T = temperature(h_agl, T_ground_K, lapseRate_per_m);
     localSoundSpeed[i] = speedOfSound(T, params.gamma, params.R);
   }
 
   // Aircraft operating point
-  const T_aircraft = temperature(params.aircraftAltitude, T_ground_K, lapseRate_per_m);
+  const aircraftHeightAgl = altitudeAboveGround(params.aircraftAltitude, params.groundElevation);
+  const T_aircraft = temperature(aircraftHeightAgl, T_ground_K, lapseRate_per_m);
   const c_aircraft = speedOfSound(T_aircraft, params.gamma, params.R);
   const localMach = params.aircraftSpeed / c_aircraft;
   const groundMach = params.aircraftSpeed / c_ground;
@@ -209,7 +215,7 @@ export const defaultParameters: SimulationParameters = {
   lapseRate: 6.5,
   groundTemp: 0,
   refAltitudeTemp: -55,
-  refAltitude: 10000,
+  groundElevation: 0,
 
   tempMode: 'twoTemps',
   knownTemp: 'ground',

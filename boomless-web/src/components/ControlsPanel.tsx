@@ -59,6 +59,23 @@ export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelP
               onValueChange={(v) => updateParameter('aircraftSpeed', v)}
             />
           </Card>
+
+          <Card className="p-4">
+            <div className="flex justify-between items-center mb-2">
+              <Label htmlFor="groundElevation">Ground Elevation</Label>
+              <span className="text-sm font-bold text-accent">
+                {(parameters.groundElevation / 1000).toFixed(1)} km
+              </span>
+            </div>
+            <Slider
+              id="groundElevation"
+              min={0}
+              max={2000}
+              step={100}
+              value={parameters.groundElevation}
+              onValueChange={(v) => updateParameter('groundElevation', v)}
+            />
+          </Card>
         </div>
       </section>
 
@@ -116,7 +133,7 @@ export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelP
               {/* Aircraft Altitude Temp — editable */}
               <Card className="p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <Label htmlFor="refAltitudeTemp">Altitude Temperature</Label>
+                  <Label htmlFor="refAltitudeTemp">Aircraft Altitude Temperature</Label>
                   <span className="text-sm font-bold text-accent">
                     {parameters.refAltitudeTemp.toFixed(1)}°C
                   </span>
@@ -178,7 +195,7 @@ export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelP
               ) : (
                 <Card className="p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <Label htmlFor="refAltitudeTemp2">Altitude Temperature</Label>
+                    <Label htmlFor="refAltitudeTemp2">Aircraft Altitude Temperature</Label>
                     <span className="text-sm font-bold text-accent">
                       {parameters.refAltitudeTemp.toFixed(1)}°C
                     </span>
@@ -215,7 +232,7 @@ export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelP
               {/* Derived temperature — read-only */}
               <div className="px-4 py-3 rounded-[4px] bg-muted/50 border border-border flex justify-between items-center">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  {parameters.knownTemp === 'ground' ? 'Derived Alt Temp' : 'Derived Ground Temp'}
+                  {parameters.knownTemp === 'ground' ? 'Derived Aircraft Alt Temp' : 'Derived Ground Temp'}
                 </span>
                 <span className="text-sm font-bold text-foreground">
                   {parameters.knownTemp === 'ground'
@@ -285,22 +302,6 @@ export const ControlsPanel = ({ parameters, onParametersChange }: ControlsPanelP
             />
           </Card>
 
-          <Card className="p-4">
-            <div className="flex justify-between items-center mb-2">
-              <Label htmlFor="refAltitude">Reference Altitude</Label>
-              <span className="text-sm font-bold text-accent">
-                {(parameters.refAltitude / 1000).toFixed(1)} km
-              </span>
-            </div>
-            <Slider
-              id="refAltitude"
-              min={5000}
-              max={20000}
-              step={500}
-              value={parameters.refAltitude}
-              onValueChange={(v) => updateParameter('refAltitude', v)}
-            />
-          </Card>
         </div>
       </section>
 

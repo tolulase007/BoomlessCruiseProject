@@ -51,7 +51,7 @@ params = {
     "lapseRate": altitude_lapse_rate,
     "groundTemp": land_temperature,
     "refAltitudeTemp": aircraft_temperature,
-    "refAltitude": aircraft_altitude,
+    "groundElevation": 0,
     "tempMode": "twoTemps",
     "knownTemp": "ground",
     "gamma": adiabatic_index,

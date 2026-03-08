@@ -8,33 +8,24 @@ This document shows the exact mapping between your original Python code and the 
 
 **Python (BoomlessCruiseMain.py):**
 ```python
-def temperature(h):
+def temperature(h_agl):
     """
-    Linear temperature profile with lapse rate,
-    corrected so that:
-      T(0) = T_ground_ref
-      T(h_alt_ref) = T_alt_ref
+    Linear temperature profile with lapse rate
+    relative to local ground.
     """
-    T_linear = T_ground_ref - lapse_rate * h
-    correction = T_alt_ref - (T_ground_ref - lapse_rate * h_alt_ref)
-    return T_linear + correction
+    return T_ground_ref - lapse_rate * h_agl
 ```
 
 **TypeScript (src/physics.ts):**
 ```typescript
-function temperature(h: number, params: SimulationParameters): number {
+function temperature(h_agl: number, params: SimulationParameters): number {
   const T_ground_K = params.groundTemp + 273.15;
-  const T_alt_K = params.refAltitudeTemp + 273.15;
   const lapse_rate_per_m = params.lapseRate / 1000.0;
-  
-  const T_linear = T_ground_K - lapse_rate_per_m * h;
-  const correction = T_alt_K - (T_ground_K - lapse_rate_per_m * params.refAltitude);
-  
-  return T_linear + correction;
+  return T_ground_K - lapse_rate_per_m * h_agl;
 }
 ```
 
-**✅ Identical Logic:** Same formula, same correction term, same anchoring to reference points.
+**✅ Identical Logic:** Same linear lapse model anchored to local ground.
 
 ---
 
@@ -196,7 +187,8 @@ R = 287                  # J/(kg·K), specific gas constant for air
 lapse_rate = 6.5 / 1000.0     # K per meter (6.5 K/km)
 T_ground_ref = 0 + 273.15         # ground temperature
 T_alt_ref = -55 + 273.15            # temperature at reference altitude
-h_alt_ref = 10000           # tropopause height
+h_aircraft = 10000          # aircraft altitude
+ground_elevation = 0        # local ground above sea level
 altitude = np.linspace(0, 20000, 400)
 velocity = np.linspace(250, 380, 400)
 ```
@@ -212,7 +204,8 @@ export const defaultParameters: SimulationParameters = {
   lapseRate: 6.5,
   groundTemp: 0,
   refAltitudeTemp: -55,
-  refAltitude: 10000,
+  groundElevation: 0,
+  aircraftAltitude: 10000,
   gamma: 1.4,
   R: 287,
   gridResolution: 400,
@@ -349,8 +342,9 @@ To verify the implementations produce identical results, you can:
 
 Example test case:
 - Ground temp: 15°C
-- Ref altitude: 10 km
-- Ref altitude temp: -55°C
+- Ground elevation: 0 km
+- Aircraft altitude: 10 km
+- Aircraft altitude temp: -55°C
 - Lapse rate: 6.5°C/km
 - γ: 1.4
 - R: 287 J/(kg·K)

@@ -20,7 +20,7 @@ The TypeScript implementation **perfectly replicates** your Python code:
 ```python
 def temperature(h):
     T_linear = T_ground_ref - lapse_rate * h
-    correction = T_alt_ref - (T_ground_ref - lapse_rate * h_alt_ref)
+    correction = T_alt_ref - (T_ground_ref - lapse_rate * h_aircraft)
     return T_linear + correction
 
 def speed_of_sound(T):
@@ -34,7 +34,7 @@ subsonic = (V < c_altitude)
 ```typescript
 function temperature(h: number, params: SimulationParameters): number {
   const T_linear = T_ground_K - lapse_rate_per_m * h;
-  const correction = T_alt_K - (T_ground_K - lapse_rate_per_m * params.refAltitude);
+  const correction = T_alt_K - (T_ground_K - lapse_rate_per_m * params.aircraftAltitude);
   return T_linear + correction;
 }
 
@@ -70,8 +70,8 @@ const isSubsonic = (v < c_local);
 1. Altitude range (0-30 km)
 2. Velocity range (200-450 m/s)
 3. Ground temperature (-20 to 40°C)
-4. Reference altitude temperature (-70 to -30°C)
-5. Reference altitude (5-15 km)
+4. Aircraft altitude temperature (-70 to -30°C)
+5. Ground elevation (0-2 km)
 6. Lapse rate (4-10°C/km)
 7. Adiabatic index (γ)
 8. Specific gas constant (R)

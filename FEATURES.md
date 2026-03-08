@@ -27,13 +27,13 @@ Model different weather and atmospheric scenarios:
     - Hot desert: +35°C
     - Standard atmosphere: +15°C
 
-- **Reference Altitude Temperature**: -70°C to -30°C
-  - *Default*: -55°C (typical at 10km)
+- **Aircraft Altitude Temperature**: -70°C to -30°C
+  - *Default*: -55°C (typical at cruise altitude)
   - *Use case*: Match actual atmospheric measurements
 
-- **Reference Altitude**: 5,000 - 15,000 meters
-  - *Default*: 10,000m (approx. tropopause)
-  - *Use case*: Anchor temperature profile to known measurement
+- **Ground Elevation**: 0 to 2,000 meters
+  - *Default*: 0m (sea level)
+  - *Use case*: Model airports and terrain above sea level
 
 - **Lapse Rate**: 4.0 - 10.0 °C/km
   - *Default*: 6.5°C/km (ISA standard)
@@ -131,9 +131,9 @@ Advanced parameters for different atmospheric compositions:
 - Current values displayed
 
 **Section 2: Atmospheric Conditions**
-- Four environmental parameters
+- Five environmental parameters
 - Temperature and lapse rate controls
-- Reference altitude anchoring
+- Aircraft altitude anchoring
 
 **Section 3: Gas Properties**
 - Advanced physics constants

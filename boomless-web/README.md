@@ -17,7 +17,7 @@ Interactive visualization tool for analyzing Mach cutoff conditions in supersoni
 
 The simulation computes three flight regimes over an altitude-velocity grid:
 
-- **Temperature Profile**: `T(h) = T_ground - lapse_rate × h + correction`
+- **Temperature Profile**: `T(h_agl) = T_ground - lapse_rate × h_agl`
 - **Speed of Sound**: `c(T) = √(γ × R × T)`
 - **Subsonic**: `V < c(h)`
 - **Boomless Feasible**: `c(h) < V < c_ground` (Mach cutoff condition)
@@ -147,8 +147,9 @@ boomless-web/
 
 ### Atmospheric Conditions
 - **Ground Temperature**: -20 to 40°C
-- **Reference Altitude Temperature**: -70 to -30°C
-- **Reference Altitude**: 5-15 km
+- **Aircraft Altitude Temperature**: -70 to -30°C
+- **Ground Elevation**: 0-2 km
+- **Aircraft Altitude**: 0-30 km
 - **Lapse Rate**: 4-10°C/km
 
 ### Gas Properties

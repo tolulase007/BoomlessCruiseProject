@@ -12,7 +12,8 @@ def resolve_temps(params: dict) -> dict:
     Mirror TS behavior: resolve groundTemp, refAltitudeTemp, lapseRate (all °C)
     from tempMode and knownTemp.
     """
-    h_ref_km = params["refAltitude"] / 1000.0
+    ground_elevation = params.get("groundElevation", 0.0)
+    h_ref_km = max(0.0, params["aircraftAltitude"] - ground_elevation) / 1000.0
     temp_mode = params.get("tempMode", "twoTemps")
     known_temp = params.get("knownTemp", "ground")
 
@@ -69,6 +70,7 @@ def run_simulation(params: dict) -> dict:
     gamma = params["gamma"]
     R = params["R"]
     resolution = int(params["gridResolution"])
+    ground_elevation = params.get("groundElevation", 0.0)
 
     # 1-D arrays
     altitude_arr = np.linspace(
@@ -83,13 +85,13 @@ def run_simulation(params: dict) -> dict:
     c_ground = float(_speed_of_sound(np.array([T_ground]), gamma, R)[0])
 
     # c(h) boundary curve
-    T_at_alt = _temperature(altitude_arr, T_ground_K, lapse_rate_per_m)
+    altitude_agl = np.maximum(altitude_arr - ground_elevation, 0.0)
+    T_at_alt = _temperature(altitude_agl, T_ground_K, lapse_rate_per_m)
     local_sound_speed = _speed_of_sound(T_at_alt, gamma, R)
 
     # Aircraft operating point
-    T_aircraft = _temperature(
-        np.array([params["aircraftAltitude"]]), T_ground_K, lapse_rate_per_m
-    )[0]
+    aircraft_agl = max(0.0, params["aircraftAltitude"] - ground_elevation)
+    T_aircraft = _temperature(np.array([aircraft_agl]), T_ground_K, lapse_rate_per_m)[0]
     c_aircraft = float(_speed_of_sound(np.array([T_aircraft]), gamma, R)[0])
     local_mach = params["aircraftSpeed"] / c_aircraft
     ground_mach = params["aircraftSpeed"] / c_ground
