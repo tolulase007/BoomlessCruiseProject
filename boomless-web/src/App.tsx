@@ -3,7 +3,6 @@ import { SimulationParameters, defaultParameters, runSimulation, SimulationResul
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { Plane } from 'lucide-react';
 import { DESMOS_GRAPH_URL, DESMOS_OPACITY, API_BASE_URL, PYTHON_FIDDLE_URL } from './config';
-import { BackgroundEnvelope } from './components/BackgroundEnvelope';
 import { WelcomePopover } from './components/WelcomePopover';
 
 const SimulationView = lazy(() =>
@@ -13,11 +12,13 @@ const TryScriptTab = lazy(() =>
   import('./components/TryScriptTab').then((m) => ({ default: m.TryScriptTab }))
 );
 
-const desmosEmbedUrl = DESMOS_GRAPH_URL
+const ENABLE_DESMOS_BACKGROUND = false;
+const desmosEmbedUrl = ENABLE_DESMOS_BACKGROUND && DESMOS_GRAPH_URL
   ? `${DESMOS_GRAPH_URL.replace(/\?.*$/, '')}?embed`
   : '';
 const DESMOS_TIMING_TAG = '[desmos-timing]';
-const DESMOS_BOOT_DELAY_MS = 250;
+const DESMOS_BOOT_DELAY_MS = 50;
+const DESMOS_MIN_GRAPH_FIRST_MS = 0;
 
 function isDesmosTimingEnabled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -71,6 +72,7 @@ function App() {
   // Deterministic startup: paint app first, then start Desmos shortly after.
   useEffect(() => {
     if (!desmosEmbedUrl) return;
+    const warmupController = new AbortController();
     try {
       const origin = new URL(desmosEmbedUrl).origin;
       const dnsPrefetch = document.createElement('link');
@@ -85,6 +87,21 @@ function App() {
     } catch {
       /* ignore */
     }
+    logDesmosTiming('desmos-warmup:start', { url: desmosEmbedUrl });
+    void fetch(desmosEmbedUrl, {
+      mode: 'no-cors',
+      cache: 'force-cache',
+      credentials: 'omit',
+      signal: warmupController.signal,
+    })
+      .then(() => logDesmosTiming('desmos-warmup:done'))
+      .catch((err: unknown) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          logDesmosTiming('desmos-warmup:error', {
+            message: err instanceof Error ? err.message : 'unknown',
+          });
+        }
+      });
     let cancelled = false;
     const addIframe = () => {
       if (!cancelled) {
@@ -101,6 +118,7 @@ function App() {
       cancelled = true;
       cancelAnimationFrame(rafId);
       if (timeoutId != null) clearTimeout(timeoutId);
+      warmupController.abort();
     };
   }, []);
 
@@ -112,7 +130,7 @@ function App() {
   useEffect(() => {
     if (!desmosLoaded) return;
     const elapsed = (typeof performance !== 'undefined' ? performance.now() : 0) - appStartMsRef.current;
-    const minGraphFirstMs = 1200;
+    const minGraphFirstMs = DESMOS_MIN_GRAPH_FIRST_MS;
     const delayMs = Math.max(0, minGraphFirstMs - elapsed);
     logDesmosTiming('desmos-visible:scheduled', {
       elapsedSinceStartMs: Number(elapsed.toFixed(1)),
@@ -210,10 +228,14 @@ function App() {
 
   return (
     <>
-      {/* Lightweight SVG background: always visible; dims further when Desmos iframe fades in */}
-      <BackgroundEnvelope
-        result={result}
-        opacity={desmosVisible ? 0.05 : 0.14}
+      {/* Static SVG background: non-blocking replacement for Desmos */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none bg-center bg-cover bg-no-repeat"
+        aria-hidden
+        style={{
+          backgroundImage: 'url(/alto.png)',
+          opacity: isDark ? 0.22 : 0.34,
+        }}
       />
       {/* Desmos iframe: sandboxed (forces a separate OS process in Chromium so it can't block the page) */}
       {desmosEmbedUrl && desmosReady && (
