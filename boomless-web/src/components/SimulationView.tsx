@@ -73,8 +73,8 @@ export function SimulationView({
       >
         <ControlsPanel parameters={parameters} onParametersChange={onParametersChange} />
         {showScrollHint && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-muted/90 via-muted/60 to-transparent">
-            <div className="absolute inset-x-0 bottom-2 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 border-t border-border/60 bg-gradient-to-t from-background/95 via-background/90 to-transparent shadow-[0_-10px_20px_rgba(0,0,0,0.25)] backdrop-blur-sm scroll-hint-gradient-blur">
+            <div className="absolute inset-x-0 bottom-2 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-foreground">
               <span className="inline-flex items-center gap-1">
                 Scroll
                 <ChevronDown className="h-3 w-3 animate-bounce" />

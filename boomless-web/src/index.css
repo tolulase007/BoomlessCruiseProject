@@ -10,6 +10,12 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Gradient fade for backdrop blur (used on scroll hint) */
+  .scroll-hint-gradient-blur {
+    -webkit-mask-image: linear-gradient(to top, black 0%, black 55%, transparent 100%);
+    mask-image: linear-gradient(to top, black 0%, black 55%, transparent 100%);
+  }
 }
 
 @layer base {
