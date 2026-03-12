@@ -4,6 +4,7 @@ import { DarkModeToggle } from './components/DarkModeToggle';
 import { CircleHelp, Plane } from 'lucide-react';
 import { DESMOS_GRAPH_URL, DESMOS_OPACITY, API_BASE_URL, PYTHON_FIDDLE_URL } from './config';
 import { WelcomePopover } from './components/WelcomePopover';
+import { Analytics } from "@vercel/analytics/next"
 
 const SimulationView = lazy(() =>
   import('./components/SimulationView').then((m) => ({ default: m.SimulationView }))
