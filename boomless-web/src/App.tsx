@@ -100,12 +100,11 @@ function App() {
   }, [API_BASE_URL]);
 
   useEffect(() => {
-    if (!API_BASE_URL) return;
     const params = new URLSearchParams(window.location.search);
     const source = params.get(TRACK_PARAM_NAME);
     if (!source) return;
 
-    const trackUrl = `${API_BASE_URL.replace(/\/$/, '')}/track`;
+    const trackUrl = '/api/track';
     const sessionStorageKey = `track-session:${source}`;
     const storedSessionId = sessionStorage.getItem(sessionStorageKey);
     const sessionId = storedSessionId ?? createSessionId();
