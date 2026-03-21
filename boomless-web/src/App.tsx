@@ -20,6 +20,16 @@ const desmosEmbedUrl = ENABLE_DESMOS_BACKGROUND && DESMOS_GRAPH_URL
 const DESMOS_TIMING_TAG = '[desmos-timing]';
 const DESMOS_BOOT_DELAY_MS = 50;
 const DESMOS_MIN_GRAPH_FIRST_MS = 0;
+const TRACK_PARAM_NAME = 'src';
+const TRACK_EVENT_START = 'session_start';
+const TRACK_EVENT_END = 'session_end';
+
+function createSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function isDesmosTimingEnabled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -88,6 +98,69 @@ function App() {
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, scheduleHintNudge));
     };
   }, [API_BASE_URL]);
+
+  useEffect(() => {
+    if (!API_BASE_URL) return;
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get(TRACK_PARAM_NAME);
+    if (!source) return;
+
+    const trackUrl = `${API_BASE_URL.replace(/\/$/, '')}/track`;
+    const sessionStorageKey = `track-session:${source}`;
+    const storedSessionId = sessionStorage.getItem(sessionStorageKey);
+    const sessionId = storedSessionId ?? createSessionId();
+    if (!storedSessionId) {
+      sessionStorage.setItem(sessionStorageKey, sessionId);
+    }
+
+    const startFlagKey = `track-start-sent:${sessionId}`;
+    const endFlagKey = `track-end-sent:${sessionId}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+
+    const sendEvent = (eventType: string) => {
+      const payload = JSON.stringify({
+        event: eventType,
+        session_id: sessionId,
+        source,
+        path: window.location.pathname,
+        timezone,
+      });
+      if (typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon(trackUrl, new Blob([payload], { type: 'application/json' }));
+        return;
+      }
+      void fetch(trackUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+
+    if (!sessionStorage.getItem(startFlagKey)) {
+      sendEvent(TRACK_EVENT_START);
+      sessionStorage.setItem(startFlagKey, '1');
+    }
+
+    const sendEndOnce = () => {
+      if (sessionStorage.getItem(endFlagKey)) return;
+      sendEvent(TRACK_EVENT_END);
+      sessionStorage.setItem(endFlagKey, '1');
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendEndOnce();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', sendEndOnce);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', sendEndOnce);
+    };
+  }, []);
 
   const tsResult = useMemo(() => runSimulation(parameters), [parameters]);
   const logDesmosTiming = (event: string, data: Record<string, unknown> = {}) => {
