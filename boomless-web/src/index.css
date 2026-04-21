@@ -11,6 +11,18 @@
     display: none;
   }
 
+  /* Mobile landscape tightening: keep desktop-style layout, but reduce padding/columns. */
+  @media (max-width: 900px) and (orientation: landscape) {
+    .mobile-landscape-compact\:\!w-\[280px\] { width: 280px !important; }
+    .mobile-landscape-compact\:\!p-4 { padding: 1rem !important; }
+    .mobile-landscape-compact\:\!p-3 { padding: 0.75rem !important; }
+    .mobile-landscape-compact\:\!px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .mobile-landscape-compact\:\!gap-2 { gap: 0.5rem !important; }
+    .mobile-landscape-compact\:\!text-lg { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+    .mobile-landscape-compact\:\!grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .mobile-landscape-compact\:\!grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+  }
+
   /* Gradient fade for backdrop blur (used on scroll hint) */
   .scroll-hint-gradient-blur {
     -webkit-mask-image: linear-gradient(to top, black 0%, black 55%, transparent 100%);

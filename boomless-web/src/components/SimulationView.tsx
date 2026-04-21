@@ -69,7 +69,7 @@ export function SimulationView({
             setShowScrollHint(false);
           }
         }}
-        className="relative w-[300px] shrink-0 border-r border-border overflow-y-auto scrollbar-hide min-h-0 p-8 bg-muted/50"
+        className="relative w-[300px] shrink-0 border-r border-border overflow-y-auto scrollbar-hide min-h-0 p-8 bg-muted/50 mobile-landscape-compact:!w-[280px] mobile-landscape-compact:!p-4"
       >
         <ControlsPanel parameters={parameters} onParametersChange={onParametersChange} />
         {showScrollHint && (
@@ -85,13 +85,13 @@ export function SimulationView({
       </aside>
 
       <main
-        className="flex-1 p-4 overflow-hidden flex flex-col bg-background/85"
+        className="flex-1 p-4 overflow-hidden flex flex-col bg-background/85 mobile-landscape-compact:!p-3"
       >
-        <div className="flex-1 flex flex-col gap-3 min-h-0 max-w-5xl mx-auto w-full">
+        <div className="flex-1 flex flex-col gap-3 min-h-0 max-w-5xl mx-auto w-full mobile-landscape-compact:!gap-2">
           {/* Title row */}
           <div className="flex justify-between items-start shrink-0">
             <div>
-              <h2 className="text-xl font-bold tracking-tight mb-0.5">Mach Cutoff Envelope</h2>
+              <h2 className="text-xl font-bold tracking-tight mb-0.5 mobile-landscape-compact:!text-lg">Mach Cutoff Envelope</h2>
               <p className="text-muted-foreground text-xs font-medium">
                 {parameters.tempMode === 'twoTemps' ? 'Two-temperature' : 'Lapse-rate'}{' '}
                 atmospheric model &middot; {parameters.gridResolution}&times;
@@ -119,11 +119,15 @@ export function SimulationView({
 
           {/* Chart — grows to fill remaining space */}
           <div className="flex-1 min-h-0">
-            <FlightEnvelopeChart result={result} />
+            <FlightEnvelopeChart
+              result={result}
+              parameters={parameters}
+              onParametersChange={onParametersChange}
+            />
           </div>
 
           {/* Metrics row */}
-          <div className="grid grid-cols-4 gap-3 shrink-0">
+          <div className="grid grid-cols-4 gap-3 shrink-0 mobile-landscape-compact:!grid-cols-2 mobile-landscape-compact:!gap-2">
             <MetricCard
               label="Ground Speed of Sound"
               value={`${result.groundSoundSpeed.toFixed(1)}`}
@@ -147,7 +151,7 @@ export function SimulationView({
           </div>
 
           {/* Info row */}
-          <div className="grid grid-cols-2 gap-3 shrink-0">
+          <div className="grid grid-cols-2 gap-3 shrink-0 mobile-landscape-compact:!grid-cols-1 mobile-landscape-compact:!gap-2">
             <div className="bg-muted/50 border border-border p-3 rounded-[4px] text-xs leading-relaxed">
               <span className="font-bold">Boomless condition:</span> Aircraft flies supersonically
               at altitude (M<sub>local</sub>&gt;1) while the ground Mach number stays below 1

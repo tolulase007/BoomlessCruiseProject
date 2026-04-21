@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { SimulationParameters, defaultParameters, runSimulation, SimulationResult } from './physics';
 import { DarkModeToggle } from './components/DarkModeToggle';
-import { CircleHelp, Plane } from 'lucide-react';
+import { CircleHelp, Plane, Smartphone, RotateCw } from 'lucide-react';
 import { DESMOS_GRAPH_URL, DESMOS_OPACITY, API_BASE_URL, PYTHON_FIDDLE_URL } from './config';
 import { WelcomePopover } from './components/WelcomePopover';
 import { Analytics } from '@vercel/analytics/react';
@@ -23,6 +23,7 @@ const DESMOS_MIN_GRAPH_FIRST_MS = 0;
 const TRACK_PARAM_NAME = 'src';
 const TRACK_EVENT_START = 'session_start';
 const TRACK_EVENT_END = 'session_end';
+const ROTATE_HINT_DISMISS_KEY = 'ui:rotate-hint-dismissed';
 
 function createSessionId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -60,6 +61,14 @@ function App() {
   const [desmosReady, setDesmosReady] = useState(false);
   const [desmosLoaded, setDesmosLoaded] = useState(false);
   const [desmosVisible, setDesmosVisible] = useState(false);
+  const [rotateHintDismissed, setRotateHintDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(ROTATE_HINT_DISMISS_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false);
   const appStartMsRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : 0);
   const desmosLayerRef = useRef<HTMLDivElement | null>(null);
   const desmosIframeMountedRef = useRef(false);
@@ -98,6 +107,21 @@ function App() {
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, scheduleHintNudge));
     };
   }, [API_BASE_URL]);
+
+  useEffect(() => {
+    const update = () => {
+      if (typeof window === 'undefined') return;
+      const mq = window.matchMedia('(max-width: 900px) and (orientation: portrait)');
+      setIsMobilePortrait(mq.matches);
+    };
+    update();
+    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('orientationchange', update, { passive: true } as AddEventListenerOptions);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -335,6 +359,8 @@ function App() {
     usePythonBackend && API_BASE_URL && apiResult != null ? apiResult : tsResult;
   const usingPythonFallback = usePythonBackend && API_BASE_URL && apiError;
 
+  const showRotateOverlay = isMobilePortrait && !rotateHintDismissed && activeTab === 'simulation';
+
   return (
     <>
       {/* Static SVG background: non-blocking replacement for Desmos */}
@@ -389,8 +415,60 @@ function App() {
       <div
         className="relative z-10 h-screen overflow-hidden flex flex-col bg-transparent"
       >
+      {showRotateOverlay && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-md px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rotate device"
+        >
+          <div className="w-full max-w-sm rounded-[8px] border border-border bg-card shadow-[0_10px_40px_rgba(0,0,0,0.25)] p-5 animate-scale-in">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-[8px] bg-muted flex items-center justify-center">
+                <Smartphone className="h-5 w-5 text-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold tracking-tight">Best in landscape</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Rotate your device to continue.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-[6px] border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+              This simulator is designed for a wide layout so the controls and envelope chart stay visible together.
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(ROTATE_HINT_DISMISS_KEY, '1');
+                  } catch {
+                    /* ignore */
+                  }
+                  setRotateHintDismissed(true);
+                }}
+                className="flex-1 h-10 rounded-[6px] border border-border bg-card text-foreground text-xs font-bold uppercase tracking-wider hover:bg-muted/60 transition-colors"
+              >
+                Continue anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Nudge a reflow; some browsers only update orientation media query after an interaction.
+                  window.dispatchEvent(new Event('resize'));
+                }}
+                className="h-10 px-4 rounded-[6px] bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider hover:opacity-95 transition-opacity inline-flex items-center gap-2"
+              >
+                <RotateCw className="h-4 w-4" />
+                I rotated
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className={`h-14 border-b border-border px-8 flex items-center justify-between ${desmosEmbedUrl ? 'bg-card/90' : 'bg-card/95'}`}>
+      <header className={`h-14 border-b border-border px-8 flex items-center justify-between ${desmosEmbedUrl ? 'bg-card/90' : 'bg-card/95'} mobile-landscape-compact:!px-4`}>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 bg-primary flex items-center justify-center rounded-[4px]">
