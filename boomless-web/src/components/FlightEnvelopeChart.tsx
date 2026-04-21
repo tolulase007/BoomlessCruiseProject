@@ -1,9 +1,11 @@
-import { useMemo, useState, useCallback, memo } from 'react';
-import { SimulationResult } from '../physics';
+import { useMemo, useState, useCallback, memo, useRef } from 'react';
+import { SimulationParameters, SimulationResult } from '../physics';
 import { Card } from './ui/Card';
 
 interface FlightEnvelopeChartProps {
   result: SimulationResult;
+  parameters: SimulationParameters;
+  onParametersChange: (p: SimulationParameters) => void;
 }
 
 // ── Layout constants ───────────────────────────────────────────────────
@@ -40,12 +42,18 @@ function generateTicks(min: number, max: number, targetTicks: number): number[] 
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({ result }: FlightEnvelopeChartProps) {
+export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({
+  result,
+  parameters,
+  onParametersChange,
+}: FlightEnvelopeChartProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; show: boolean }>({
     x: 0,
     y: 0,
     show: false,
   });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const isPointerDownRef = useRef(false);
 
   // Domain
   const vMin = result.velocityArray[0];
@@ -130,6 +138,51 @@ export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({ result }:
 
   const ap = result.aircraftPoint;
 
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const screenToPlot = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const px = ((clientX - rect.left) / rect.width) * SVG_W;
+    const py = ((clientY - rect.top) / rect.height) * SVG_H;
+    const xInPlot = px - MARGIN.left;
+    const yInPlot = py - MARGIN.top;
+    return { xInPlot, yInPlot };
+  }, []);
+
+  const plotToDomain = useCallback((xInPlot: number, yInPlot: number) => {
+    const xClamped = clamp(xInPlot, 0, PLOT_W);
+    const yClamped = clamp(yInPlot, 0, PLOT_H);
+    const v = vMin + (xClamped / PLOT_W) * (vMax - vMin);
+    const hKm = hMinKm + ((PLOT_H - yClamped) / PLOT_H) * (hMaxKm - hMinKm);
+    return { v, hMeters: hKm * 1000 };
+  }, [vMin, vMax, hMinKm, hMaxKm]);
+
+  const updateFromPointer = useCallback((clientX: number, clientY: number) => {
+    const coords = screenToPlot(clientX, clientY);
+    if (!coords) return;
+    const { v, hMeters } = plotToDomain(coords.xInPlot, coords.yInPlot);
+    const nextSpeed = Math.round(v);
+    const nextAlt = Math.round(hMeters / 100) * 100; // 100m increments feels nice on touch
+    // Avoid churn if user taps repeatedly on same spot.
+    if (Math.abs(nextSpeed - ap.speed) < 1 && Math.abs(nextAlt - ap.altitude) < 50) return;
+    // Update only the operating point; keep bounds & other params unchanged.
+    // Note: clamp to current parameter envelope bounds (which may differ slightly from result arrays).
+    return { nextSpeed, nextAlt };
+  }, [ap.altitude, ap.speed, plotToDomain, screenToPlot]);
+
+  const applyOperatingPoint = useCallback((nextSpeed: number, nextAlt: number) => {
+    const clampedSpeed = clamp(nextSpeed, parameters.velocityMin, parameters.velocityMax);
+    const clampedAlt = clamp(nextAlt, 0, parameters.altitudeMax);
+    if (clampedSpeed === parameters.aircraftSpeed && clampedAlt === parameters.aircraftAltitude) return;
+    onParametersChange({
+      ...parameters,
+      aircraftSpeed: clampedSpeed,
+      aircraftAltitude: clampedAlt,
+    });
+  }, [onParametersChange, parameters]);
+
   return (
     <Card className="overflow-hidden flex flex-col h-full">
       {/* Legend header — card-style for trading UI feel */}
@@ -163,6 +216,7 @@ export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({ result }:
       {/* SVG chart */}
       <div className="flex-1 min-h-0 p-2">
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           className="w-full h-full"
           preserveAspectRatio="xMidYMid meet"
@@ -180,6 +234,37 @@ export const FlightEnvelopeChart = memo(function FlightEnvelopeChart({ result }:
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
             {/* Plot area background — CoinGecko-style subtle fill */}
             <rect x={0} y={0} width={PLOT_W} height={PLOT_H} className="chart-plot-bg" />
+
+            {/* Interaction layer (captures tap/drag) */}
+            <rect
+              x={0}
+              y={0}
+              width={PLOT_W}
+              height={PLOT_H}
+              fill="transparent"
+              style={{ touchAction: 'none', cursor: 'crosshair' }}
+              onPointerDown={(e) => {
+                isPointerDownRef.current = true;
+                (e.currentTarget as SVGRectElement).setPointerCapture?.(e.pointerId);
+                const updated = updateFromPointer(e.clientX, e.clientY);
+                if (!updated) return;
+                e.preventDefault();
+                applyOperatingPoint(updated.nextSpeed, updated.nextAlt);
+              }}
+              onPointerMove={(e) => {
+                if (!isPointerDownRef.current) return;
+                const updated = updateFromPointer(e.clientX, e.clientY);
+                if (!updated) return;
+                e.preventDefault();
+                applyOperatingPoint(updated.nextSpeed, updated.nextAlt);
+              }}
+              onPointerUp={() => {
+                isPointerDownRef.current = false;
+              }}
+              onPointerCancel={() => {
+                isPointerDownRef.current = false;
+              }}
+            />
 
             {/* Grid lines — light, thin */}
             {xTicks.map((v) => (
