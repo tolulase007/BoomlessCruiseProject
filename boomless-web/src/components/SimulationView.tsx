@@ -85,7 +85,7 @@ export function SimulationView({
       </aside>
 
       <main
-        className="flex-1 p-4 overflow-hidden flex flex-col bg-background/85 mobile-landscape-compact:!p-3"
+        className="flex-1 p-4 overflow-hidden flex flex-col bg-background/85 mobile-landscape-compact:!p-3 mobile-landscape-compact:!overflow-y-auto mobile-landscape-compact:!overflow-x-hidden"
       >
         <div className="flex-1 flex flex-col gap-3 min-h-0 max-w-5xl mx-auto w-full mobile-landscape-compact:!gap-2">
           {/* Title row */}
@@ -118,7 +118,7 @@ export function SimulationView({
           </div>
 
           {/* Chart — grows to fill remaining space */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 min-h-[260px] mobile-landscape-compact:!min-h-[220px]">
             <FlightEnvelopeChart
               result={result}
               parameters={parameters}
